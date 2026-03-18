@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Auth Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Defines the angle for the gradient animation */
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        :root {
+            --bg-primary: #050507;
+            --bg-secondary: #0a0a0f;
+            --accent: #00ffcc;
+            --accent-secondary: #7b61ff;
+            --text-primary: #ffffff;
+            --text-secondary: #8b8b9e;
+            --card-bg: rgba(12, 12, 18, 0.85);
+            --border: rgba(255, 255, 255, 0.1);
+            --danger: #ff4757;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Background Layers (Grid & Particles Only) --- */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+            z-index: 1;
+        }
+
+        .aurora-container {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .aurora-blob {
+            position: absolute;
+            width: 60vmax;
+            height: 60vmax;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float-aurora 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .blob-1 { top: -20%; left: -10%; background: radial-gradient(circle, var(--accent-secondary), transparent 70%); }
+        .blob-2 { bottom: -30%; right: -20%; background: radial-gradient(circle, var(--accent), transparent 70%); animation-delay: -5s; animation-direction: alternate-reverse; }
+
+        @keyframes float-aurora {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -50px) scale(1.1); }
+        }
+
+        #particleCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* --- Auth Card with RGB Border ONLY --- */
+        .auth-card {
+            position: relative;
+            z-index: 10;
+            border-radius: 24px;
+            
+            /* Clean Background */
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+
+            /* Border Trick: Transparent border + Background Clip */
+            padding: 48px;
+            border: 2px solid transparent;
+            
+            /* The RGB Border Animation */
+            background: 
+                linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+                conic-gradient(from var(--angle), #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000) border-box;
+
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            animation: 
+                cardEntry 1s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                spin-border 6s linear infinite;
+            
+            transform: translateY(40px) scale(0.95);
+            opacity: 0;
+        }
+
+        @keyframes spin-border {
+            to { --angle: 360deg; }
+        }
+
+        @keyframes cardEntry {
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .logo-container { text-align: center; margin-bottom: 32px; position: relative; z-index: 2; }
+        
+        .brand-logo {
+            display: block;
+            margin: 0 auto 20px;
+            max-width: 100%; 
+            max-height: 120px; 
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+        }
+
+        .title { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        .subtitle { font-size: 14px; color: var(--text-secondary); }
+
+        .form-header { display: flex; justify-content: center; gap: 8px; margin-bottom: 32px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 12px; }
+        
+        .tab-btn {
+            flex: 1; padding: 12px; background: transparent; border: none;
+            color: var(--text-secondary); font-size: 14px; font-weight: 600;
+            cursor: pointer; border-radius: 8px; transition: all 0.3s ease;
+        }
+        .tab-btn.active { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .tab-btn:hover:not(.active) { color: var(--text-primary); }
+
+        .form-group { margin-bottom: 20px; }
+        .input-label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        
+        .input-wrapper { position: relative; }
+        
+        .input-field {
+            width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: var(--text-primary); font-size: 15px; font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(0, 255, 204, 0.03);
+            box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.1);
+        }
+
+        .toggle-pass {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-secondary); cursor: pointer;
+            transition: color 0.2s;
+        }
+        .toggle-pass:hover { color: var(--accent); }
+
+        .submit-btn {
+            width: 100%; padding: 16px; margin-top: 12px;
+            background: var(--text-primary); border: none; border-radius: 12px;
+            color: var(--bg-primary); font-size: 15px; font-weight: 700;
+            cursor: pointer; position: relative; overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255, 255, 255, 0.1); }
+        .submit-btn:active { transform: translateY(0); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .btn-content { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .spinner { width: 18px; height: 18px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+        .submit-btn.loading .spinner { display: block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-msg { color: var(--danger); font-size: 13px; margin-top: 16px; text-align: center; min-height: 20px; }
+        
+        /* --- Notification --- */
+        .notification {
+            position: fixed; top: 24px; right: 24px; padding: 16px 28px;
+            background: var(--card-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: 14px;
+            z-index: 200;
+            transform: translateX(150%); transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .notification.show { transform: translateX(0); }
+        .notification.success { border-left: 4px solid var(--accent); }
+        .notification.error { border-left: 4px solid var(--danger); }
+        
+        @media (max-width: 480px) {
+            .auth-card { padding: 32px 24px; }
+            .aurora-blob { filter: blur(60px); opacity: 0.3; }
+            .brand-logo { max-height: 90px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Background Elements -->
+    <div class="aurora-container">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+    </div>
+    <div class="bg-grid"></div>
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- 2. Auth Card -->
+    <div class="auth-card" id="authCard">
+        <div class="logo-container">
+            <img id="brandLogo" class="brand-logo" alt="Brand Logo">
+            <h1 class="title" id="formTitle">Welcome</h1>
+            <p class="subtitle" id="formSubtitle">Sign in to continue</p>
+        </div>
+
+        <div class="form-header">
+            <button class="tab-btn active" id="loginTab" onclick="switchMode('login')">Sign In</button>
+            <button class="tab-btn" id="signupTab" onclick="switchMode('signup')">Create Account</button>
+        </div>
+
+        <form id="authForm" onsubmit="handleSubmit(event)">
+            <div class="form-group" id="nameGroup" style="display: none;">
+                <label class="input-label">Full Name</label>
+                <input type="text" class="input-field" id="nameInput" placeholder="Enter your name">
+            </div>
+
+            <div class="form-group">
+                <label class="input-label">Email Address</label>
+                <input type="email" class="input-field" id="emailInput" placeholder="Enter your email" required>
+            </div>
+
+            <div class="form-group">
+                <label class="input-label">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" class="input-field" id="passwordInput" placeholder="Enter your password" required style="padding-right: 48px;">
+                    <button type="button" class="toggle-pass" onclick="togglePassword()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="errorBox" class="error-msg"></div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <div class="btn-content">
+                    <div class="spinner"></div>
+                    <span class="btn-text" id="btnText">Sign In</span>
+                </div>
+            </button>
+        </form>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <span id="notifText" style="color: var(--text-primary); font-size: 14px; font-weight: 500;">Action successful</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        // PASTE YOUR OTHER WEBSITE'S LINK HERE
+        const REDIRECT_URL = "https://munnakhan12a.github.io/APKMODSTORE/"; 
+
+        // ==========================================
+        // LOGO SETUP
+        // ==========================================
+        const logoUrl = "https://i.imgur.com/0UZpLbR.png"; 
+        document.getElementById('brandLogo').src = logoUrl;
+
+        // ==========================================
+        // PARTICLE BACKGROUND LOGIC
+        // ==========================================
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouse = { x: null, y: null, radius: 150 };
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        });
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = Math.random() * 0.5 - 0.25;
+                this.speedY = Math.random() * 0.5 - 0.25;
+                this.color = 'rgba(255, 255, 255, 0.4)';
+            }
+            
+            update() {
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < mouse.radius) {
+                    let forceDirectionX = dx / distance;
+                    let forceDirectionY = dy / distance;
+                    let maxDist = mouse.radius;
+                    let force = (maxDist - distance) / maxDist;
+                    let directionX = forceDirectionX * force * 2;
+                    let directionY = forceDirectionY * force * 2;
+    
+                    this.x -= directionX;
+                    this.y -= directionY;
+                }
+
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x > canvas.width) this.x = 0;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0;
+                if (this.y < 0) this.y = canvas.height;
+            }
+            
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            let numberOfParticles = (canvas.width * canvas.height) / 9000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function connectParticles() {
+            let opacityValue = 1;
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    let distance = ((particles[a].x - particles[b].x) ** 2) + ((particles[a].y - particles[b].y) ** 2);
+                    
+                    if (distance < 12000) {
+                        opacityValue = 1 - (distance / 12000);
+                        ctx.strokeStyle = 'rgba(255, 255, 255, ' + opacityValue * 0.15 + ')';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            connectParticles();
+            requestAnimationFrame(animateParticles);
+        }
+
+        resizeCanvas();
+        animateParticles();
+
+        // ==========================================
+        // AUTHENTICATION LOGIC
+        // ==========================================
+        const DB_KEY = 'portal_registered_users';
+        const SESSION_KEY = 'portal_current_user';
+        const getDB = () => JSON.parse(localStorage.getItem(DB_KEY)) || [];
+        const saveDB = (data) => localStorage.setItem(DB_KEY, JSON.stringify(data));
+
+        let isLoginMode = true;
+
+        // Elements
+        const nameGroup = document.getElementById('nameGroup');
+        const nameInput = document.getElementById('nameInput');
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const formTitle = document.getElementById('formTitle');
+        const formSubtitle = document.getElementById('formSubtitle');
+        const errorBox = document.getElementById('errorBox');
+        const loginTab = document.getElementById('loginTab');
+        const signupTab = document.getElementById('signupTab');
+        const notification = document.getElementById('notification');
+        const notifText = document.getElementById('notifText');
+
+        function switchMode(mode) {
+            isLoginMode = mode === 'login';
+            errorBox.innerText = '';
+            
+            if (isLoginMode) {
+                loginTab.classList.add('active');
+                signupTab.classList.remove('active');
+                nameGroup.style.display = 'none';
+                nameInput.required = false;
+                formTitle.innerText = 'Welcome Back';
+                formSubtitle.innerText = 'Sign in to continue';
+                btnText.innerText = 'Sign In';
+            } else {
+                loginTab.classList.remove('active');
+                signupTab.classList.add('active');
+                nameGroup.style.display = 'block';
+                nameInput.required = true;
+                formTitle.innerText = 'Create Account';
+                formSubtitle.innerText = 'Sign up to get started';
+                btnText.innerText = 'Create Account';
+            }
+        }
+
+        function togglePassword() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+        }
+
+        function showNotification(message, type = 'success') {
+            notifText.innerText = message;
+            notification.className = 'notification show ' + type;
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+
+        function handleSubmit(e) {
+            e.preventDefault();
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            errorBox.innerText = '';
+
+            setTimeout(() => {
+                if (isLoginMode) handleLogin();
+                else handleSignup();
+                
+                // Only re-enable button if NOT redirecting (login handles redirect on success)
+                if (!isLoginMode || errorBox.innerText !== '') {
+                     submitBtn.classList.remove('loading');
+                     submitBtn.disabled = false;
+                }
+            }, 1200);
+        }
+
+        function handleSignup() {
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            const db = getDB();
+            
+            if (db.find(u => u.email === email)) {
+                errorBox.innerText = 'This email is already registered.';
+                return;
+            }
+
+            const newUser = { id: Date.now(), name, email, password };
+            db.push(newUser);
+            saveDB(db);
+
+            showNotification('Account created! Please sign in.', 'success');
+            switchMode('login');
+            passwordInput.value = ''; 
+        }
+
+        function handleLogin() {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            const db = getDB();
+            const user = db.find(u => u.email === email);
+
+            if (!user) {
+                errorBox.innerText = 'User not found. Please sign up first.';
+                return;
+            }
+
+            if (user.password !== password) {
+                errorBox.innerText = 'Incorrect password. Please try again.';
+                return;
+            }
+
+            loginUserSession(user);
+        }
+
+        function loginUserSession(user) {
+            // 1. Save user to localStorage so the OTHER website can see they are logged in
+            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+            
+            // 2. Show a brief success message
+            showNotification('Login Successful! Redirecting...', 'success');
+            
+            // 3. Redirect to the other website after 1.5 seconds
+            setTimeout(() => {
+                window.location.href = REDIRECT_URL;
+            }, 1500);
+        }
+
+        function checkSession() {
+            // We don't need to show the profile card here anymore because we are redirecting.
+            // This function is kept minimal just in case you want to expand logic later.
+            const session = JSON.parse(localStorage.getItem(SESSION_KEY));
+            // Optional: If user is already logged in, redirect immediately?
+            // if (session) window.location.href = REDIRECT_URL; 
+        }
+
+        checkSession();
+    </script>
+</body>
+</html>
